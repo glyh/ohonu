@@ -23,3 +23,7 @@ eval $(opam env)
 ```sh
 dune exec ohonu
 ```
+
+### References
+
+- [Binding as Sets of Scopes](https://www-old.cs.utah.edu/plt/scope-sets/index.html)
