@@ -3,6 +3,7 @@ open Scopes
 
 exception Unimplemented
 exception TypeError
+exception SyntaxError
 exception NoSuchSym of string
 
 let get_sub_env (s: scope_set) (e: environment) = 
@@ -18,26 +19,24 @@ let rec lookup_env (sym: string) (s: scope_set) (e: environment): value option =
   | (Some outer, None) -> lookup_env sym s outer
   | (_, _) -> None
 
-let rec eval_terms (s: scope_set) (env: environment) (terms: form list): value list = 
+let rec eval_terms (s: scope_set) (env: environment) (terms: value list): value list = 
   List.map (eval s env) terms
 
-and eval (s: scope_set) (env: environment) (term: form): value = 
+and eval (s: scope_set) (env: environment) (term: value): value = 
   match term with
-  | Let(sym, rhs, inner) -> 
+  | List [Sym "let"; Sym sym; rhs; inner ] ->
       let (sub_env, sub_scope_set) = get_sub_env s env in
       let rhs_evaled = (eval s env rhs) in
       push_scope rhs_evaled sym sub_scope_set sub_env.current;
       eval sub_scope_set sub_env inner
 
-  | LetSyntax(sym, rhs, inner) ->
+  | List [Sym "let-syntax"; Sym sym; rhs; inner ] ->
       let (sub_env, sub_scope_set) = get_sub_env s env in
       let st_evaled = begin match eval s env rhs with
       | Lambda fn -> 
           let wrapped = fun s_call_site vs ->
             let scopes_new = ScopeSet.union s s_call_site in
-            match fn scopes_new env vs with
-            | Quote f -> f
-            | _ -> raise TypeError
+              fn scopes_new env vs
           in (ST wrapped)
       | _ -> raise TypeError
       end
@@ -45,10 +44,28 @@ and eval (s: scope_set) (env: environment) (term: form): value =
       push_scope st_evaled sym sub_scope_set sub_env.current;
       eval sub_scope_set sub_env inner
 
-  | List(Val (Sym sym), rest) ->
+  | List[Sym "fn"; List params; body] ->
+    let collect_params v =
+        begin match v with
+        | Sym s -> s
+        | _ -> raise TypeError
+        end
+    in
+    let collected_params = List.map collect_params params in
+    let wrapped s env args =
+      let (sub_env, sub_scope_set) = get_sub_env s env in
+      let binded_args = (List.combine collected_params args) in
+      List.map (fun (sym, arg) -> push_scope arg sym sub_scope_set sub_env.current) binded_args |> ignore;
+      eval sub_scope_set sub_env body
+    in Lambda wrapped
+
+  | List(Sym ("let" | "let-syntax" | "fn") :: _) ->
+          raise SyntaxError
+
+  | List(Sym sym :: rest) ->
       begin match lookup_env sym s env with
       | Some(ST(f_st)) -> 
-          let expanded = f_st s (List.map (fun f -> Quote f) rest)
+          let expanded = f_st s rest
           in eval s env expanded
       | Some(Lambda(fn)) -> 
           fn s env (eval_terms s env rest)
@@ -56,18 +73,18 @@ and eval (s: scope_set) (env: environment) (term: form): value =
       | None -> raise (NoSuchSym sym)
       end
 
-  | List(l, rest) -> 
+  | List(l :: rest) -> 
       begin match eval s env l with
       | Lambda(fn) ->
         let rest_evaled = eval_terms s env rest in
         fn s env rest_evaled
       | _ -> raise TypeError
       end
-  | Val(Sym sym) -> 
+  | Sym sym -> 
       begin match lookup_env sym s env with
       | Some(v) -> 
           v
       | None -> raise (NoSuchSym sym)
       end
 
-  | Val(v) -> v
+  | v -> v

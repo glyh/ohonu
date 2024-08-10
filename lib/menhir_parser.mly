@@ -13,7 +13,7 @@
 %token <string> STR
 %token <int> INT
 
-%start <form> program_eof
+%start <value> program_eof
 
 %%
 
@@ -27,10 +27,7 @@ value:
   | FALSE { Bool(false) }
   | i=INT { Int(i) }
 form:
-  | v=value { Val v }
-  | LPAREN hd=form rest=list(form) RPAREN {
-    match hd :: rest with
-    | [Val (Sym "let"); Val (Sym id); rhs; body] -> Let(id, rhs, body)
-    | [Val (Sym "let-syntax"); Val (Sym id); rhs; body] -> LetSyntax(id, rhs, body)
-    | _ -> List(hd, rest) 
+  | v=value { v }
+  | LPAREN lst=list(form) RPAREN {
+    List(lst)
   }

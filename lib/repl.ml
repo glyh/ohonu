@@ -16,7 +16,7 @@ let rep input =
     |> eval ScopeSet.empty Env.base_env 
     |> print
     ) with
-  | NoSuchSym(sym) -> Printf.printf "Can't find symbol `%s`.\n" sym
+  | NoSuchSym(sym) -> print_endline (Printf.sprintf "Can't find symbol `%s`." sym)
 
 let interactive () =
   while true do
