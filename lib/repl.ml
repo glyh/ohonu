@@ -3,8 +3,9 @@ open Eval_expand
 open Ast
 
 let read source = 
-  let parsed = Parser.parse_string source in
-  parsed
+  source
+  |> Parser.parse_string
+  |> cst_to_ast
 
 let print (value: value) =
   value |> string_of_value |> print_endline

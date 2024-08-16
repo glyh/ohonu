@@ -13,7 +13,7 @@
 %token <string> STR
 %token <int> INT
 
-%start <value> program_eof
+%start <cst> program_eof
 
 %%
 
@@ -21,13 +21,13 @@ program_eof:
   | f=form EOF { f }
 
 value: 
-  | s=SYMBOL { Sym(s) }
-  | s=STR { String(s) }
-  | TRUE { Bool(true) }
-  | FALSE { Bool(false) }
-  | i=INT { Int(i) }
+  | s=SYMBOL { CSym(s) }
+  | s=STR { CString(s) }
+  | TRUE { CBool(true) }
+  | FALSE { CBool(false) }
+  | i=INT { CInt(i) }
 form:
   | v=value { v }
   | LPAREN lst=list(form) RPAREN {
-    List(lst)
+    CList(lst)
   }

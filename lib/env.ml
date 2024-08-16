@@ -2,7 +2,7 @@ open Ast
 open Scopes
 
 exception ArityError of string * int * int (* expected, actual*)
-exception ValueTypeMismatch of string * string * string
+exception ValueTypeMismatch of string * value * string
 
 let wrap_lam (fn: value list -> value) =
   Lambda(fun _ _ vs -> fn vs)
@@ -11,7 +11,7 @@ let v_numeric id op vs =
   match vs with
   | [Int a; Int b] -> Int (op a b)
   | [_ as operand; Int _] | [_; _ as operand] -> 
-      raise (ValueTypeMismatch (id, get_type operand, "int"))
+      raise (ValueTypeMismatch (id, operand, "int"))
   | _ -> raise (ArityError (id, (List.length vs), 2))
 
 let base_env: environment = {

@@ -22,8 +22,6 @@ module ScopeSet = Set.Make(struct
   let compare = compare
 end)
 
-module SymMap = Map.Make(String)
-
 module SymTbl = Hashtbl.Make(struct
   type t = string
   let equal = String.equal
@@ -36,19 +34,17 @@ type 'ty scope_map = 'ty scope_sets SymTbl.t
 
 exception AmbiguousScopeRsolution of scope_set * scope_set * scope_set
 
-(* The index is marked in revese order, so when inserting a new scope_set we put it at front *)
 let resolve_scope_set (ss: 'ty scope_sets) (s: ScopeSet.t): 'ty option =
-  let rec resolve_scope_set_inner (ss: 'ty scope_sets) (s: ScopeSet.t): ('ty * scope_set) option =
+  let rec resolve_scope_set_inner (ss: 'ty scope_sets) (s: ScopeSet.t): (scope_set * 'ty) option =
     match ss with
     | [] -> None
-    | (si, v) :: s_rest ->
+    | (si, vi) :: s_rest ->
         if ScopeSet.subset si s then
           begin match resolve_scope_set_inner s_rest s with
-          | None -> (Some (v, si))
-          | Some(id, sj) -> 
-              let cmp = compare (ScopeSet.cardinal si) (ScopeSet.cardinal sj) in
-              if cmp < 0 then Some(v, si)
-              else if cmp > 0 then Some(id, sj)
+          | None -> (Some (si, vi))
+          | Some(sj, vj) -> 
+              if ScopeSet.subset si sj then Some(si, vi)
+              else if ScopeSet.subset sj si then Some(sj, vj)
               else raise (AmbiguousScopeRsolution(s, si, sj))
           end
         else 
@@ -56,7 +52,7 @@ let resolve_scope_set (ss: 'ty scope_sets) (s: ScopeSet.t): 'ty option =
   in
   match resolve_scope_set_inner ss s with
   | None -> None
-  | Some(v, _) -> Some v
+  | Some(_, v) -> Some v
 
 let resolve_scope_map (m: 'ty scope_map) (symbol_name: string) (s: ScopeSet.t): 'ty option =
   match SymTbl.find_opt m symbol_name with
@@ -67,4 +63,4 @@ let push_scope (v: 'a) (name: string) (scope: scope_set) (m: 'a scope_map) =
   match SymTbl.find_opt m name with
   | None -> SymTbl.add m name [scope, v]
   | Some(scope_sets) -> 
-      SymTbl.add m name ((scope, v) :: scope_sets )
+      SymTbl.add m name ((scope, v) :: scope_sets)
